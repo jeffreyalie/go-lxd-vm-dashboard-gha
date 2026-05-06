@@ -13,44 +13,41 @@ A lightweight Go web application that displays the live status of LXD instances 
 
 ---
 
-## Architecture
+## Architecture - (Infrastrucutre - Go app internal workflow - Go app internal Secrets workflow)
 
 ```
-                         ┌────────────────────┐
-                         │     index.html     │
-                         └─────────┬──────────┘
-                                   │
-                                   ▼
-                         ┌────────────────────┐
-                         │      Browser       │
-                         └─────────┬──────────┘
-                                   │
-                                   ▼
-                         ┌────────────────────┐
-                         │  Ingress (NGINX)   │
-                         └─────────┬──────────┘
-                                   │
-                                   ▼
-                         ┌────────────────────┐
-                         │      Service       │
-                         └─────────┬──────────┘
-                                   │
-                                   ▼
-                         ┌────────────────────┐
-                         │   Pod (MicroK8s)   │
-                         └─────────┬──────────┘
-                                   │
-             ┌─────────────────────┴─────────────────────┐
-             │                                           │
-             ▼                                           ▼
-┌──────────────────────────────┐         ┌──────────────────────────────┐
-│ Fetch TLS cert/key           │         │ Query LXD API                │
-│ from OpenBao (AppRole)       │         │ (LXD Server)                 │
-└──────────────────────────────┘         └──────────────────────────────┘
-
-Browser → Ingress (nginx) → Service → Pod
-                                        ├── Fetches TLS cert/key from OpenBao (AppRole)
-                                        └── Queries LXD API → renders index.html
+                              ┌────────────────────┐
+                              │     index.html     │
+                              └────────────────────┘
+                                      │   ▲
+                                      │   │  
+                                      ▼   │ 
+                              ┌────────────────────┐
+                              │      Browser       │
+                              └─────────┬──────────┘
+                                        │
+                                        ▼
+                              ┌────────────────────┐
+                              │  Ingress (NGINX)   │
+                              └─────────┬──────────┘
+                                        │
+                                        ▼
+                              ┌────────────────────┐
+                              │      Service       │
+                              └─────────┬──────────┘
+                                        │
+                                        ▼
+                              ┌────────────────────┐
+                              │   Pod (MicroK8s)   │  (OpenBao secrets for OpenBao)
+                              └─────────┬──────────┘
+                                        │
+                  ┌─────────────────────┴─────────────────────┐
+                  │                                           │
+                  ▼                                           ▼
+      ┌──────────────────────────────┐         ┌──────────────────────────────┐
+      │ Fetch TLS cert/key           │         │ Query LXD API                │
+      │ from OpenBao (AppRole)       │         │ (LXD Server)                 │
+      └──────────────────────────────┘         └──────────────────────────────┘
 
 ```
 
