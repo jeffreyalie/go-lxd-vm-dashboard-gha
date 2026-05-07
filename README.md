@@ -74,20 +74,7 @@ MicroK8s add-ons required:
 ```bash
 microk8s enable dns registry ingress helm3
 ```
-
----
-
-## Quick Steps to Deploy
-
-### 1. One-time infrastructure setup
-
-**OpenBao** — update policy to include `microk8s` path and store kubeconfig:
-```bash
-export VAULT_ADDR=https://<openbao-ip>:8200
-export VAULT_TOKEN=<root-or-admin-token>
-export HOST_IP=$(ip addr show lxdbr0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
-bash setup/openbao-setup.sh
-```
+### One-time infrastructure setup
 
 **MicroK8s** — create namespaces and inject OpenBao credentials as K8s secrets:
 ```bash
@@ -116,8 +103,11 @@ Settings → Secrets → VAULT_ADDR
                    → VAULT_ROLE_ID
                    → VAULT_SECRET_ID
 ```
+---
 
-### 2. Clone and create a branch
+## Quick Steps to Deploy
+
+### 1. Clone and create a branch
 
 ```bash
 git clone https://gitea.local/Infra/go-lxd-vm-dashboard-gha.git
@@ -125,7 +115,7 @@ cd go-lxd-vm-dashboard-gha
 git checkout -b feature/my-change
 ```
 
-### 3. Make changes, push and raise a PR
+### 2. Make changes, push and raise a PR
 
 ```bash
 git add .
@@ -137,7 +127,7 @@ Open a PR in Gitea: `feature/my-change → main`
 
 This triggers **pr-pipeline.yml** automatically — build, deploy to dev, deploy to staging.
 
-### 4. Merge to main
+### 3. Merge to main
 
 Once PR is reviewed and merged into `main`, this triggers **push-pipeline.yml** automatically — build and deploy to live.
 
