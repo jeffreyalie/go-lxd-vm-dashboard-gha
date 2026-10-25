@@ -167,7 +167,7 @@ Once PR is reviewed and merged into `main`, this triggers **push-pipeline.yml** 
 ┌──────────────────────────────────────────────────┐
 │         homelab/data/microk8s                    │
 │              kubeconfig                          │
-│   (server: https://10.206.213.243:16443)        │
+│   (server: https://10.206.213.243:16443)            │
 └──────────────────────────┬───────────────────────┘
                            │
                            ▼
@@ -185,8 +185,6 @@ Once PR is reviewed and merged into `main`, this triggers **push-pipeline.yml** 
 PR Pipeline:   build-pr → deploy-dev-pr → deploy-staging-pr
 Push Pipeline: build    → deploy-live
 ```
-
-MicroK8s server IP: `10.206.213.243` (configured in helm-chart/values.yaml and GHA workflows)
 
 ### Workflow Details
 
@@ -227,11 +225,6 @@ deploy-live       → needs: build
                     verifies rollout
 ```
 
-**Note on Registry & LXD Address:**
-- GHA workflows use `10.206.213.243:32000` for Docker registry
-- Helm chart uses `10.206.213.243:8443` for LXD API endpoint
-- These IPs are configured in Gitea org secrets and local helm values
-
 ---
 
 ### Go App Internal Workflow & Secrets
@@ -269,7 +262,7 @@ deploy-live       → needs: build
                            ▼
 ┌──────────────────────────────────────────────────┐
 │                  LXD API                         │
-│          https://10.0.0.162:8443                 │
+│          https://10.206.213.243:8443                 │
 └──────────────────────────┬───────────────────────┘
                            │
                            ▼
@@ -317,8 +310,8 @@ Every HTTP request to `/` triggers this sequence:
 Multi-stage build — Go binary compiled in `golang:1.26.2-alpine`, copied into `alpine:latest` final image. Only the binary and `index.html` are included. No credentials baked in.
 
 ```bash
-docker build -t 10.0.0.162:32000/go-lxd-vm-dashboard:latest ./app
-docker push 10.0.0.162:32000/go-lxd-vm-dashboard:latest
+docker build -t 10.206.213.243:32000/go-lxd-vm-dashboard:latest ./app
+docker push 10.206.213.243:32000/go-lxd-vm-dashboard:latest
 ```
 
 **Helm chart:**

@@ -10,9 +10,9 @@ name: PR Pipeline (dev → staging)
 on:
   workflow_dispatch:
 
-# MicroK8s server IP (update in Gitea org secrets when changing)
-IMAGE_REPO: 10.206.213.243:32000/go-lxd-vm-dashboard
-IMAGE_TAG: pr-${{ github.run_number }}
+env:
+  IMAGE_REPO: 10.206.213.243:32000/go-lxd-vm-dashboard
+  IMAGE_TAG: pr-${{ github.run_number }}
 
 jobs:
   # ----------------------------------------------------------------
