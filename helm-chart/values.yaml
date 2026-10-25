@@ -9,7 +9,7 @@ service:
   targetPort: 8080 # This MUST match your Go app logs
 
 lxd:
-  address: "https://10.206.213.243:8443"
+  address: "https://10.0.0.250:8443"
 
 # Point Helm to the secret you already created manually
 existingSecretName: "openbao-creds"
