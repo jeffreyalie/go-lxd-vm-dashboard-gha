@@ -167,7 +167,7 @@ Once PR is reviewed and merged into `main`, this triggers **push-pipeline.yml** 
 ┌──────────────────────────────────────────────────┐
 │         homelab/data/microk8s                    │
 │              kubeconfig                          │
-│   (server: https://10.0.0.162:16443)            │
+│   (server: https://10.206.213.243:16443)        │
 └──────────────────────────┬───────────────────────┘
                            │
                            ▼
@@ -186,13 +186,15 @@ PR Pipeline:   build-pr → deploy-dev-pr → deploy-staging-pr
 Push Pipeline: build    → deploy-live
 ```
 
+MicroK8s server IP: `10.206.213.243` (configured in helm-chart/values.yaml and GHA workflows)
+
 ### Workflow Details
 
 **PR Pipeline** (`.gitea/workflows/pr-pipeline.yml`):
 
 ```
 build-pr          → builds image tagged pr-<run_number>
-                    pushes to 10.0.0.162:32000
+                    pushes to 10.206.213.243:32000
                     runs automatically
 
 deploy-dev-pr     → needs: build-pr
@@ -214,7 +216,7 @@ deploy-staging-pr → needs: deploy-dev-pr
 
 ```
 build             → builds image tagged latest
-                    pushes to 10.0.0.162:32000
+                    pushes to 10.206.213.243:32000
                     runs automatically
 
 deploy-live       → needs: build
@@ -224,6 +226,11 @@ deploy-live       → needs: build
                     --set image.tag=latest
                     verifies rollout
 ```
+
+**Note on Registry & LXD Address:**
+- GHA workflows use `10.206.213.243:32000` for Docker registry
+- Helm chart uses `10.206.213.243:8443` for LXD API endpoint
+- These IPs are configured in Gitea org secrets and local helm values
 
 ---
 

@@ -1,5 +1,7 @@
+# Image registry (MicroK8s server IP)
+# Note: For Gitea Actions, set these in Gitea org-level secrets (Infra org)
 image:
-  repository: localhost:32000/go-lxd-vm-dashboard
+  repository: 10.206.213.243:32000/go-lxd-vm-dashboard
   tag: "latest"
   pullPolicy: Always
 
@@ -8,8 +10,9 @@ service:
   port: 80
   targetPort: 8080 # This MUST match your Go app logs
 
+# LXD API server IP (update when MicroK8s server IP changes)
 lxd:
-  address: "https://10.0.0.162:8443"
+  address: "https://10.206.213.243:8443"
 
 # Point Helm to the secret you already created manually
 existingSecretName: "openbao-creds"
