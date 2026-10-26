@@ -145,6 +145,45 @@ Once PR is reviewed and merged into `main`, this triggers **push-pipeline.yml** 
 | Push Pipeline | build | ✅ | — |
 | Push Pipeline | deploy-live | ✅ | http://live.local |
 
+### Workflow Details
+
+**PR Pipeline** (`.gitea/workflows/pr-pipeline.yml`):
+
+```
+build-pr          → builds image tagged pr-<run_number>
+                    pushes to 10.206.213.243:32000
+                    runs automatically
+
+deploy-dev-pr     → needs: build-pr
+                    fetches kubeconfig from OpenBao
+                    helm upgrade --install --namespace dev
+                    --values helm-chart/values-dev.yaml
+                    --set image.tag=pr-<run_number>
+                    verifies rollout
+
+deploy-staging-pr → needs: deploy-dev-pr
+                    fetches kubeconfig from OpenBao
+                    helm upgrade --install --namespace staging
+                    --values helm-chart/values-staging.yaml
+                    --set image.tag=pr-<run_number>
+                    verifies rollout
+```
+
+**Push Pipeline** (`.gitea/workflows/push-pipeline.yml`):
+
+```
+build             → builds image tagged latest
+                    pushes to 10.206.213.243:32000
+                    runs automatically
+
+deploy-live       → needs: build
+                    fetches kubeconfig from OpenBao
+                    helm upgrade --install --namespace live
+                    --values helm-chart/values-live.yaml
+                    --set image.tag=latest
+                    verifies rollout
+```
+
 ---
 
 # Architecture
@@ -256,46 +295,6 @@ Gitea / Developer
 PR Pipeline:   build-pr → deploy-dev-pr → deploy-staging-pr
 Push Pipeline: build    → deploy-live
 ```
-
-### Workflow Details
-
-**PR Pipeline** (`.gitea/workflows/pr-pipeline.yml`):
-
-```
-build-pr          → builds image tagged pr-<run_number>
-                    pushes to 10.206.213.243:32000
-                    runs automatically
-
-deploy-dev-pr     → needs: build-pr
-                    fetches kubeconfig from OpenBao
-                    helm upgrade --install --namespace dev
-                    --values helm-chart/values-dev.yaml
-                    --set image.tag=pr-<run_number>
-                    verifies rollout
-
-deploy-staging-pr → needs: deploy-dev-pr
-                    fetches kubeconfig from OpenBao
-                    helm upgrade --install --namespace staging
-                    --values helm-chart/values-staging.yaml
-                    --set image.tag=pr-<run_number>
-                    verifies rollout
-```
-
-**Push Pipeline** (`.gitea/workflows/push-pipeline.yml`):
-
-```
-build             → builds image tagged latest
-                    pushes to 10.206.213.243:32000
-                    runs automatically
-
-deploy-live       → needs: build
-                    fetches kubeconfig from OpenBao
-                    helm upgrade --install --namespace live
-                    --values helm-chart/values-live.yaml
-                    --set image.tag=latest
-                    verifies rollout
-```
-
 ---
 
 ### Go App Internal Workflow & Secrets
