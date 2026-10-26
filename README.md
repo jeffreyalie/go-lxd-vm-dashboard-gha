@@ -257,8 +257,45 @@ Gitea / Developer
 
 ```
 ---
+### Go app (secrets) deployment architecture - Microk8s - terraform - GHA runner - openbao (vault)
+```
+K8s Secret (openbao-creds)         ← created manually via kubectl  
+├── VAULT\_ADDR                         in each namespace (dev/staging/live)  
+├── VAULT\_ROLE\_ID  
+└── VAULT\_SECRET\_ID  
+         │  
+         │
+      Helm Charts  injected via envFrom in values.yaml ---injected---> deployment.yaml  
+         │  
+         ▼  
+      Go App (main.go)  
+      getSecrets() function  
+         │  
+         │  AppRole login on every HTTP request  
+         ▼  
+      OpenBao  
+         │  
+         └── homelab/data/lxd  
+                  │  
+                  ├── client\_cert    → LXD TLS auth  
+                  └── client\_key     → LXD TLS auth  
+                           │  
+                           ▼  
+                        LXD API  
+                  https://10.0.0.162:8443  
+                           │  
+                           ▼  
+                    Instance list  
+                    (name, type, status, IPs)  
+                           │  
+                           ▼  
+                      index.html  
+                      rendered to browser
 
-### GHA Workflow & Secrets
+```
+---
+
+### Go app (secrets) deployment architecture - Gitea org secrets and runner
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -296,46 +333,6 @@ Gitea / Developer
 PR Pipeline:   build-pr → deploy-dev-pr → deploy-staging-pr
 Push Pipeline: build    → deploy-live
 ```
----
-
-### Go App Internal Workflow & Secrets
-
-```
-K8s Secret (openbao-creds)         ← created manually via kubectl  
-├── VAULT\_ADDR                         in each namespace (dev/staging/live)  
-├── VAULT\_ROLE\_ID  
-└── VAULT\_SECRET\_ID  
-         │  
-         │
-      Helm Charts  injected via envFrom in values.yaml ---injected---> deployment.yaml  
-         │  
-         ▼  
-      Go App (main.go)  
-      getSecrets() function  
-         │  
-         │  AppRole login on every HTTP request  
-         ▼  
-      OpenBao  
-         │  
-         └── homelab/data/lxd  
-                  │  
-                  ├── client\_cert    → LXD TLS auth  
-                  └── client\_key     → LXD TLS auth  
-                           │  
-                           ▼  
-                        LXD API  
-                  https://10.0.0.162:8443  
-                           │  
-                           ▼  
-                    Instance list  
-                    (name, type, status, IPs)  
-                           │  
-                           ▼  
-                      index.html  
-                      rendered to browser
-
-```
-
 ---
 
 ## Go App Details
