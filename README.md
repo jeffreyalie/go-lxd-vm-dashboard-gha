@@ -257,7 +257,7 @@ Gitea / Developer
 
 ```
 ---
-### Go app (secrets) deployment architecture - Microk8s - terraform - GHA runner - openbao (vault)
+### Go app deployment architecture - Microk8s - terraform - GHA runner - openbao (vault) - secreats
 ```
 K8s Secret (openbao-creds)         ← created manually via kubectl  
 ├── VAULT\_ADDR                         in each namespace (dev/staging/live)  
@@ -295,7 +295,7 @@ K8s Secret (openbao-creds)         ← created manually via kubectl
 ```
 ---
 
-### Go app (secrets) deployment architecture - Gitea org secrets and runner
+### Go app deployment architecture - Gitea org secrets and runner - secrets
 
 ```
 ┌──────────────────────────────────────────────────┐
