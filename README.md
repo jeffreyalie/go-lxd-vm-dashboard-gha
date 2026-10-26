@@ -12,6 +12,7 @@
 - [Quick Steps to Deploy](#quick-steps-to-deploy)
 - [Access Links](#access-links)
 - [Architecture](#architecture)
+  - [Go app deploymemnt architecture](#go-app-deployment-architecture---microk8s---terraform---gha-runner---openbao-vault)
   - [GHA Workflow & Secrets](#gha-workflow--secrets)
   - [Go App Internal Workflow & Secrets](#go-app-internal-workflow--secrets)
 - [Workflow Details](#workflow-details)
