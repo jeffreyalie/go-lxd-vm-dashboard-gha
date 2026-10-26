@@ -169,7 +169,7 @@ Once PR is reviewed and merged into `main`, this triggers **push-pipeline.yml** 
 ┌──────────────────────────────────────────────────┐
 │         homelab/data/microk8s                    │
 │              kubeconfig                          │
-│   (server: https://10.206.213.243:16443)            │
+│   (server: https://10.206.213.243:16443)         │
 └──────────────────────────┬───────────────────────┘
                            │
                            ▼
@@ -232,48 +232,39 @@ deploy-live       → needs: build
 ### Go App Internal Workflow & Secrets
 
 ```
-┌──────────────────────────────────────────────────┐
-│          K8s Secret (openbao-creds)              │
-│   created manually via kubectl                   │
-│   exists in each namespace: dev, staging, live   │
-│                                                  │
-│  ├── VAULT_ADDR                                  │
-│  ├── VAULT_ROLE_ID                               │
-│  └── VAULT_SECRET_ID                             │
-└──────────────────────────┬───────────────────────┘
-                           │
-                           │  injected via envFrom
-                           │  in deployment.yaml
-                           ▼
-┌──────────────────────────────────────────────────┐
-│              Go App (main.go)                    │
-│          getSecrets() function                   │
-│        called on every HTTP request              │
-└──────────────────────────┬───────────────────────┘
-                           │
-                           │  AppRole login
-                           ▼
-┌──────────────────────────────────────────────────┐
-│                  OpenBao                         │
-│           homelab/data/lxd                       │
-│           ├── client_cert                        │
-│           └── client_key                         │
-└──────────────────────────┬───────────────────────┘
-                           │
-                           │  LXD TLS auth
-                           ▼
-┌──────────────────────────────────────────────────┐
-│                  LXD API                         │
-│          https://10.206.213.243:8443                 │
-└──────────────────────────┬───────────────────────┘
-                           │
-                           ▼
-                   Instance list
-              (name, type, status, IPs)
-                           │
-                           ▼
-                      index.html
-                 rendered to browser
+K8s Secret (openbao-creds)         ← created manually via kubectl  
+├── VAULT\_ADDR                         in each namespace (dev/staging/live)  
+├── VAULT\_ROLE\_ID  
+└── VAULT\_SECRET\_ID  
+         │  
+         │
+      Helm Charts  injected via envFrom in values.yaml ---injected---> deployment.yaml  
+         │  
+         ▼  
+      Go App (main.go)  
+      getSecrets() function  
+         │  
+         │  AppRole login on every HTTP request  
+         ▼  
+      OpenBao  
+         │  
+         └── homelab/data/lxd  
+                  │  
+                  ├── client\_cert    → LXD TLS auth  
+                  └── client\_key     → LXD TLS auth  
+                           │  
+                           ▼  
+                        LXD API  
+                  https://10.0.0.162:8443  
+                           │  
+                           ▼  
+                    Instance list  
+                    (name, type, status, IPs)  
+                           │  
+                           ▼  
+                      index.html  
+                      rendered to browser
+
 ```
 
 ---
