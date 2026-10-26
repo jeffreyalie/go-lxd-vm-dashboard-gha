@@ -65,37 +65,16 @@ jobs:
           VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
           VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}
         run: |
-        #   # Authenticate with AppRole
-        #   VAULT_TOKEN=$(curl -s -k -X POST "${VAULT_ADDR}/v1/auth/approle/login" \
-        #     -H "Content-Type: application/json" \
-        #     -d "{\"role_id\":\"${VAULT_ROLE_ID}\",\"secret_id\":\"${VAULT_SECRET_ID}\"}" \
-        #     | jq -r '.auth.client_token')
-
-        #   if [ -z "$VAULT_TOKEN" ] || [ "$VAULT_TOKEN" = "null" ]; then
-        #     echo "ERROR: OpenBao login failed"
-        #     exit 1
-        #   fi
-          set -euo pipefail
-
-          # --- Login: exchange AppRole creds for a short-lived token ---
-          VAULT_TOKEN=$(curl -sk "${VAULT_ADDR}/v1/auth/approle/login" \
-            --data "{\"role_id\":\"${VAULT_ROLE_ID}\",\"secret_id\":\"${VAULT_SECRET_ID}\"}" \
+          # Authenticate with AppRole
+          VAULT_TOKEN=$(curl -s -k -X POST "${VAULT_ADDR}/v1/auth/approle/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"role_id\":\"${VAULT_ROLE_ID}\",\"secret_id\":\"${VAULT_SECRET_ID}\"}" \
             | jq -r '.auth.client_token')
 
           if [ -z "$VAULT_TOKEN" ] || [ "$VAULT_TOKEN" = "null" ]; then
-            echo "::error:: Failed to authenticate with OpenBao"
+            echo "ERROR: OpenBao login failed"
             exit 1
           fi
-
-          # --- Helper: read a KV v2 path, return .data.data as JSON ---
-          vault_read() {
-            RESPONSE=$(curl -sk -H "X-Vault-Token: ${VAULT_TOKEN}" \
-              "${VAULT_ADDR}/v1/$1") || {
-              echo "::error:: Failed to read vault path: $1"
-              exit 1
-            }
-            echo "$RESPONSE" | jq -r '.data.data'
-          }
 
           # Fetch kubeconfig
           curl -s -k \
