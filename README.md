@@ -1,5 +1,7 @@
 # go-lxd-vm-dashboard-gha
 
+![LXD monitoring dashboard](images/LXD-dashboard.png)
+
 ---
 
 ## Table of Contents
