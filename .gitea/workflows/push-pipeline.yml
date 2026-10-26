@@ -77,12 +77,16 @@ jobs:
             exit 1
           fi
 
+          # Fetch kubeconfig
           curl -s -k \
             -H "X-Vault-Token: ${VAULT_TOKEN}" \
             "${VAULT_ADDR}/v1/homelab/data/microk8s" \
             | jq -r '.data.data.kubeconfig' > /tmp/kubeconfig
 
-          [ -s /tmp/kubeconfig ] || { echo "ERROR: empty kubeconfig"; exit 1; }
+          if [ ! -s /tmp/kubeconfig ]; then
+            echo "ERROR: kubeconfig fetch failed or empty"
+            exit 1
+          fi
           echo "Kubeconfig fetched successfully"
 
       - name: Deploy to live namespace
