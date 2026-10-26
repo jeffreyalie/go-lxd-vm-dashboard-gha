@@ -147,7 +147,76 @@ Once PR is reviewed and merged into `main`, this triggers **push-pipeline.yml** 
 
 ---
 
-## Architecture
+# Architecture
+
+## Go app deployment architecture - Microk8s - terraform - GHA runner - openbao (vault)
+
+---
+```
+Developer / GitHub Actions Runner
+----main commands----
+docker build
+docker push
+helm install/upgrade
+---------------------
+
+Gitea / Developer
++-----------------------------------+
+| Source Code + Helm Chart Folder   |
+| Chart.yaml, values.yaml, templates|
++-----------------------------------+
+        │
+        |
++------------------+
+|Runner / Developer├──────────────────────────────────────────────────────► docker build
++------------------+                                                      │
+        │                                                                 ▼
+        │                                                        +------------------+
+        │                                                        | Docker Image     |
+        │                                                        | (tagged version) |
+        │                                                        +------------------+
+        │                                                                 │
+        │                                                                 ▼
+        │                                                              docker push
+        │                                                                 │
+        │                                                                 ▼
+        │                                                       +------------------+
+        │                                                       | MicroK8s Registry|
+        │                                                       | Stores container |
+        │                                                       | images           |
+        │                                                       +------------------+
+        │
+        └───────────────► helm install/upgrade
+                              │
+                              ▼
+                      +----------------------+
+                      | Helm Metadata        |
+                      | - Release name       |
+                      | - Values used        |
+                      | - Chart version      |
+                      | - History snapshot   |
+                      +----------------------+
+                              │
+                              ▼
+                      +----------------------+
+                      | Kubernetes Objects   |
+                      | - Deployment         |
+                      | - Service            |
+                      | - Ingress            |
+                      | - ConfigMaps/Secrets |
+                      +----------------------+
+                              │
+                              ▼
+                      +----------------------+
+                      | Pods (runtime)       |
+                      | - Pull images from   |
+                      |   MicroK8s registry  |
+                      | - Ephemeral, auto-   |
+                      |   recreated by K8s   |
+                      +----------------------+
+
+```
+---
 
 ### GHA Workflow & Secrets
 
