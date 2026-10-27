@@ -10,16 +10,18 @@
 ## Table of Contents
 
 Overview
-- [Summary](#summary)
-- [Folder Structure](#folder-structure)
-- [Architecture](#architecture)
+
+* [Summary](#summary)
+* [Folder Structure](#folder-structure)
+* [Architecture](#architecture)
+
 Details
-- [Prerequisites](#prerequisites)
-- [Quick Steps to Deploy](#quick-steps-to-deploy)
-- [Access Links](#access-links)
-- [Workflow Details](#workflow-details)
-- [Go App Details](#go-app-details)
-- [Roadmap](#roadmap)
+* [Prerequisites](#prerequisites)
+* [Quick Steps to Deploy](#quick-steps-to-deploy)
+* [Access Links](#access-links)
+* [Workflow Details](#workflow-details)
+* [Go App Details](#go-app-details)
+* [Roadmap](#roadmap)
 
 ---
 
