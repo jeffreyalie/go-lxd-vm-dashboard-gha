@@ -9,15 +9,14 @@
 
 ## Table of Contents
 
+Overview
 - [Summary](#summary)
 - [Folder Structure](#folder-structure)
+- [Architecture](#architecture)
+Details
 - [Prerequisites](#prerequisites)
 - [Quick Steps to Deploy](#quick-steps-to-deploy)
 - [Access Links](#access-links)
-- [Architecture](#architecture)
-  - [Go app deploymemnt architecture](#go-app-deployment-architecture---microk8s---terraform---gha-runner---openbao-vault)
-  - [GHA Workflow & Secrets](#gha-workflow--secrets)
-  - [Go App Internal Workflow & Secrets](#go-app-internal-workflow--secrets)
 - [Workflow Details](#workflow-details)
 - [Go App Details](#go-app-details)
 - [Roadmap](#roadmap)
