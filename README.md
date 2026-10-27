@@ -1,4 +1,7 @@
-# go-lxd-vm-dashboard-gha
+
+#                      Go app deployment
+---
+# Go app to monitor lxd VMs via webui
 
 ![LXD monitoring dashboard](images/LXD-dashboard.png)
 
@@ -59,7 +62,160 @@ Deployed on MicroK8s via Helm across three isolated environments — **dev**, **
 ├── .gitignore
 └── README.md
 ```
+---
+## Architecture
 
+### Infrastructure Archtecture - GHA - kubernetes - openbao (vault)
+
+```
+Developer / GitHub Actions Runner
+----main commands----
+docker build
+docker push
+helm install/upgrade
+---------------------
+
+Gitea / Developer
++-----------------------------------+
+| Source Code + Helm Chart Folder   |
+| Chart.yaml, values.yaml, templates|
++-----------------------------------+
+        │
+        |
++------------------+
+|Runner / Developer├──────────────────────────────────────────────────────► docker build
++------------------+                                                      │
+        │                                                                 ▼
+        │                                                        +------------------+
+        │                                                        | Docker Image     |
+        │                                                        | (tagged version) |
+        │                                                        +------------------+
+        │                                                                 │
+        │                                                                 ▼
+        │                                                             docker push
+        │                                                                 │
+        │                                                                 ▼
+        │                                                       +------------------+
+        │                                                       | MicroK8s Registry|
+        │                                                       | Stores container |
+        │                                                       | images           |
+        │                                                       +------------------+
+        │
+        └───────────────► helm install/upgrade
+                              │
+                              ▼
+                      +----------------------+
+                      | Helm Metadata        |
+                      | - Release name       |
+                      | - Values used        |
+                      | - Chart version      |
+                      | - History snapshot   |
+                      +----------------------+
+                              │
+                              ▼
+                      +----------------------+
+                      | Kubernetes Objects   |
+                      | - Deployment         |
+                      | - Service            |
+                      | - Ingress            |
+                      | - ConfigMaps/Secrets |
+                      +----------------------+
+                              │
+                              ▼
+                      +----------------------+
+                      | Pods (runtime)       |
+                      | - Pull images from   |
+                      |   MicroK8s registry  |
+                      | - Ephemeral, auto-   |
+                      |   recreated by K8s   |
+                      +----------------------+
+
+```
+### Secrets Architecture - Go app - kubernetes - openbao (vault)
+
+```
+K8s Secret (openbao-creds)         ← created manually via kubectl  
+├── VAULT\_ADDR                         in each namespace (dev/staging/live)  
+├── VAULT\_ROLE\_ID  
+└── VAULT\_SECRET\_ID  
+         │  
+         │
+      Helm Charts  injected via envFrom in values.yaml ---injected---> deployment.yaml  
+         │  
+         ▼  
+      Go App (main.go)  
+      getSecrets() function  
+         │  
+         │  AppRole login on every HTTP request  
+         ▼  
+      OpenBao  
+         │  
+         └── homelab/data/lxd  
+                  │  
+                  ├── client\_cert    → LXD TLS auth  
+                  └── client\_key     → LXD TLS auth  
+                           │  
+                           ▼  
+                        LXD API  
+                  https://10.0.0.162:8443  
+                           │  
+                           ▼  
+                    Instance list  
+                    (name, type, status, IPs)  
+                           │  
+                           ▼  
+                      index.html  
+                      rendered to browser
+
+```
+
+### Secrets architecture - GHA - kubernetes - openbao (vault)
+
+Correct. The three Gitea org secrets are for the runner’s bootstrap credentials only:
+```
+Gitea org secrets (VAULT_ADDR, VAULT_ROLE_ID, VAULT_SECRET_ID)
+        │  AppRole login
+        ▼
+OpenBao  →  homelab/data/microk8s   (kubeconfig)
+         →  homelab/data/registry   (registry address)  ← new (maybe later. still hardcoded in GHA workflow 10.206.213.243:3200)
+```
+
+```
+┌──────────────────────────────────────────────────┐
+│              Gitea Org Secrets                   │
+│  ├── VAULT_ADDR                                  │
+│  ├── VAULT_ROLE_ID      → same for ALL workflows │
+│  └── VAULT_SECRET_ID                             │
+└──────────────────────────┬───────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────┐
+│                   OpenBao                        │
+│               AppRole login                      │
+└──────────────────────────┬───────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────┐
+│         homelab/data/microk8s                    │
+│              kubeconfig                          │
+│   (server: https://10.206.213.243:16443)         │
+└──────────────────────────┬───────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────┐
+│           GHA Runner (LXD VM)                    │
+│     export KUBECONFIG=/tmp/kubeconfig            │
+└──────────┬───────────────┬───────────────┬───────┘
+           │               │               │
+           ▼               ▼               ▼
+    ┌────────────┐  ┌────────────┐  ┌────────────┐
+    │helm deploy │  │helm deploy │  │helm deploy │
+    │   dev      │  │  staging   │  │   live     │
+    └────────────┘  └────────────┘  └────────────┘
+
+PR Pipeline:   build-pr → deploy-dev-pr → deploy-staging-pr
+Push Pipeline: build    → deploy-live
+```
 ---
 
 ## Prerequisites
@@ -185,154 +341,6 @@ deploy-live       → needs: build
                     verifies rollout
 ```
 
----
-
-# Architecture
-
-## Go app deployment architecture - Microk8s - terraform - GHA runner - openbao (vault)
-
----
-```
-Developer / GitHub Actions Runner
-----main commands----
-docker build
-docker push
-helm install/upgrade
----------------------
-
-Gitea / Developer
-+-----------------------------------+
-| Source Code + Helm Chart Folder   |
-| Chart.yaml, values.yaml, templates|
-+-----------------------------------+
-        │
-        |
-+------------------+
-|Runner / Developer├──────────────────────────────────────────────────────► docker build
-+------------------+                                                      │
-        │                                                                 ▼
-        │                                                        +------------------+
-        │                                                        | Docker Image     |
-        │                                                        | (tagged version) |
-        │                                                        +------------------+
-        │                                                                 │
-        │                                                                 ▼
-        │                                                              docker push
-        │                                                                 │
-        │                                                                 ▼
-        │                                                       +------------------+
-        │                                                       | MicroK8s Registry|
-        │                                                       | Stores container |
-        │                                                       | images           |
-        │                                                       +------------------+
-        │
-        └───────────────► helm install/upgrade
-                              │
-                              ▼
-                      +----------------------+
-                      | Helm Metadata        |
-                      | - Release name       |
-                      | - Values used        |
-                      | - Chart version      |
-                      | - History snapshot   |
-                      +----------------------+
-                              │
-                              ▼
-                      +----------------------+
-                      | Kubernetes Objects   |
-                      | - Deployment         |
-                      | - Service            |
-                      | - Ingress            |
-                      | - ConfigMaps/Secrets |
-                      +----------------------+
-                              │
-                              ▼
-                      +----------------------+
-                      | Pods (runtime)       |
-                      | - Pull images from   |
-                      |   MicroK8s registry  |
-                      | - Ephemeral, auto-   |
-                      |   recreated by K8s   |
-                      +----------------------+
-
-```
----
-### Go app deployment architecture - Microk8s - terraform - GHA runner - openbao (vault) - secreats
-```
-K8s Secret (openbao-creds)         ← created manually via kubectl  
-├── VAULT\_ADDR                         in each namespace (dev/staging/live)  
-├── VAULT\_ROLE\_ID  
-└── VAULT\_SECRET\_ID  
-         │  
-         │
-      Helm Charts  injected via envFrom in values.yaml ---injected---> deployment.yaml  
-         │  
-         ▼  
-      Go App (main.go)  
-      getSecrets() function  
-         │  
-         │  AppRole login on every HTTP request  
-         ▼  
-      OpenBao  
-         │  
-         └── homelab/data/lxd  
-                  │  
-                  ├── client\_cert    → LXD TLS auth  
-                  └── client\_key     → LXD TLS auth  
-                           │  
-                           ▼  
-                        LXD API  
-                  https://10.0.0.162:8443  
-                           │  
-                           ▼  
-                    Instance list  
-                    (name, type, status, IPs)  
-                           │  
-                           ▼  
-                      index.html  
-                      rendered to browser
-
-```
----
-
-### Go app deployment architecture - Gitea org secrets and runner - secrets
-
-```
-┌──────────────────────────────────────────────────┐
-│              Gitea Org Secrets                   │
-│  ├── VAULT_ADDR                                  │
-│  ├── VAULT_ROLE_ID      → same for ALL workflows │
-│  └── VAULT_SECRET_ID                             │
-└──────────────────────────┬───────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────┐
-│                   OpenBao                        │
-│               AppRole login                      │
-└──────────────────────────┬───────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────┐
-│         homelab/data/microk8s                    │
-│              kubeconfig                          │
-│   (server: https://10.206.213.243:16443)         │
-└──────────────────────────┬───────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────┐
-│           GHA Runner (LXD VM)                    │
-│     export KUBECONFIG=/tmp/kubeconfig            │
-└──────────┬───────────────┬───────────────┬───────┘
-           │               │               │
-           ▼               ▼               ▼
-    ┌────────────┐  ┌────────────┐  ┌────────────┐
-    │helm deploy │  │helm deploy │  │helm deploy │
-    │   dev      │  │  staging   │  │   live     │
-    └────────────┘  └────────────┘  └────────────┘
-
-PR Pipeline:   build-pr → deploy-dev-pr → deploy-staging-pr
-Push Pipeline: build    → deploy-live
-```
 ---
 
 ## Go App Details
