@@ -1,7 +1,7 @@
 
 #                      Go app deployment
 ---
-# Go app to monitor lxd VMs via webui
+## Go app to monitor lxd VMs via webui
 
 ![LXD monitoring dashboard](images/LXD-dashboard.png)
 
