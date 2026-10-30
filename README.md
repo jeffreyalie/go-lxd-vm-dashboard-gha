@@ -1,6 +1,11 @@
 
 # Infrastructure Archtecture
-## Infrastructure Archtecture Go app deployment - Gitea - Gitea runner - kubernetes - openbao (vault)
+* Infrastructure Archtecture Go app deployment - Gitea - Gitea runner - kubernetes - openbao (vault)
+
+# Infrastructure Secrets Archtecture
+* Infrastructure Secrets Archtecture Go app deployment - Microk8s - openbao (vault)
+* Infrastructure Secrets Archtecture Go app deployment - GHA runner - Microk8s - openbao (vault)
+
 
 ## Go app to monitor lxd VMs via webui
 
@@ -65,7 +70,6 @@ Deployed on MicroK8s via Helm across three isolated environments — **dev**, **
 └── README.md
 ```
 ---
-## Architecture
 
 ### Infrastructure Archtecture - GHA - kubernetes - openbao (vault)
 
