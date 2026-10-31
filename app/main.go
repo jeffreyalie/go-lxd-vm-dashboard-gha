@@ -6,10 +6,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"                                                   // added
 
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	vault "github.com/hashicorp/vault/api"
+	"github.com/prometheus/client_golang/prometheus"          // added
+	"github.com/prometheus/client_golang/prometheus/promhttp" // added
 )
 
 type InstanceData struct {
@@ -18,7 +21,10 @@ type InstanceData struct {
 }
 
 func main() {
+	prometheus.MustRegister(newLXDCollector(30 * time.Second)) // added
+
 	http.HandleFunc("/", statusHandler)
+	http.Handle("/metrics", promhttp.Handler())                // added
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -30,14 +36,10 @@ func main() {
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
-	var data InstanceData
-
-	cert, key, err := getSecrets()
-	if err != nil {
-		data.Error = fmt.Errorf("Vault Error: %w", err)
-		renderTemplate(w, data)
-		return
-	}
+	instances, err := fetchInstances()
+	data := InstanceData{Instances: instances, Error: err}
+	renderTemplate(w, data)
+}
 
 	lxdAddr := os.Getenv("LXD_ADDR")
 	args := &lxd.ConnectionArgs{
@@ -110,4 +112,23 @@ func getSecrets() (cert, key string, err error) {
 
 	secretData := secret.Data["data"].(map[string]interface{})
 	return secretData["client_cert"].(string), secretData["client_key"].(string), nil
+}
+
+func fetchInstances() ([]api.InstanceFull, error) {
+	cert, key, err := getSecrets()
+	if err != nil {
+		return nil, fmt.Errorf("Vault Error: %w", err)
+	}
+	client, err := lxd.ConnectLXD(os.Getenv("LXD_ADDR"), &lxd.ConnectionArgs{
+		TLSClientCert: cert, TLSClientKey: key, InsecureSkipVerify: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("LXD Connection Error: %w", err)
+	}
+	instances, err := client.UseProject("default").GetInstancesFull(
+		lxd.GetInstancesFullArgs{InstanceType: api.InstanceTypeAny})
+	if err != nil {
+		return nil, fmt.Errorf("LXD Query Error: %w", err)
+	}
+	return instances, nil
 }
