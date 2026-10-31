@@ -7,3 +7,7 @@ ingress:
   host: "live.local"
 
 existingSecretName: "openbao-creds"
+
+grafana:
+  dashboard:
+    enabled: true
