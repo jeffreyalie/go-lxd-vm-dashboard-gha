@@ -8,6 +8,6 @@ ingress:
 
 existingSecretName: "openbao-creds"
 
-grafana:
-  dashboard:
-    enabled: true
+# grafana:
+#   dashboard:
+#     enabled: true
