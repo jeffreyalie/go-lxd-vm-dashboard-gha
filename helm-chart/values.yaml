@@ -25,4 +25,4 @@ metrics:
 
 grafana:
   dashboard:
-    enabled: false
+    enabled: true
