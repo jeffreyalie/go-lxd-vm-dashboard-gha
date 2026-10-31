@@ -18,3 +18,11 @@ ingress:
   enabled: true
   className: "public"
   host: "lxd-dashboard.local"
+
+metrics:
+  serviceMonitor:
+    enabled: true
+
+grafana:
+  dashboard:
+    enabled: false
