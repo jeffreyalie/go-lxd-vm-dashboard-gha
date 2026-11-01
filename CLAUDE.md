@@ -2,281 +2,158 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Architecture Overview
 
-A lightweight Go web application that displays live status of LXD instances (VMs and containers) via a dashboard. Deployed on MicroK8s via Helm across three isolated environments: dev, staging, and live, using a Gitea Actions CI/CD pipeline with sequential environment promotion.
+This is a **Go web application** that displays live LXD VM/container status via a dashboard, deployed through **MicroK8s + Helm** with **Gitea Actions CI/CD**. Security uses **OpenBao (Vault)** for secrets management with AppRole authentication.
 
-## Architecture Summary
+### Core Components
+- `app/` - Go HTTP server that queries LXD API and renders HTML dashboard
+- `helm-chart/` - Helm charts for deploying across dev/staging/live environments  
+- `.gitea/workflows/` - CI/CD pipelines (PR → dev/staging, push → live)
+- `setup/` - One-time infrastructure setup scripts
 
+### Data Flow (per HTTP request)
 ```
-┌─────────────────────────────────────────────────┐
-│              Go App (main.go)                    │
-│   - Authenticates to OpenBao via AppRole        │
-│   - Retrieves LXD TLS credentials at runtime     │
-│   - Queries LXD API for instance status          │
-│   - Renders HTML dashboard via template engine  │
-└─────────────────────────┬───────────────────────┘
-                          │
-                          ▼
-              ┌──────────────────────┐
-              │  Helm Chart          │
-              │  - deployment.yaml   │
-              │  - values*.yaml      │
-              │  - service/ingress   │
-              └──────────────────────┘
-                         / | \
-                        /  |  \
-                       /   |   \
-              ┌───────┼────┼────┼────────┐
-              │       │    │    │        │
-          ┌───▼───┐ ┌──▼──┐ ┌──▼──┐      │
-          │ dev   │ │staging│ │ live│     │
-          └───────┘ └──────┘ └──────┘      │
-               ─────────────────────────────
+GET / → getSecrets() [OpenBao AppRole auth] 
+       → fetch LXD TLS creds from homelab/data/lxd 
+       → lxd.ConnectLXD() [skip verify] 
+       → GetInstancesFull() 
+       → renderTemplate(index.html)
 ```
 
-## Key Commands
+## Commands Reference
 
-### Build & Deploy
+### Development Commands (Mandatory after changes)
 
-**Build the Go application:**
+**After modifying Go source code:**
 ```bash
-cd app
-docker build -t 10.206.213.243:32000/go-lxd-vm-dashboard:latest .
-docker push 10.206.213.243:32000/go-lxd-vm-dashboard:latest
-```
+# 1. Format the code (required before commit/deploy)
+go fmt ./...
 
-**Deploy to environment:**
-```bash
-# Example dev deployment
-helm upgrade --install go-lxd-vm-dashboard \
-  --namespace dev \
-  --values helm-chart/values-dev.yaml \
-  --set image.tag=latest \
-  --set image.pullPolicy=Always \
-  10.206.213.243:32000/go-lxd-vm-dashboard
-```
-
-**Full deployment with local registry push:**
-```bash
-# Build and push
-docker build -t 10.206.213.243:32000/go-lxd-vm-dashboard:$TAG ./app
-docker push 10.206.213.243:32000/go-lxd-vm-dashboard:$TAG
-
-# Deploy to target environment
-KUBECONFIG=/path/to/kubeconfig \
-helm upgrade --install go-lxd-vm-dashboard \
-  --namespace $NS \
-  --values helm-chart/values-$NS.yaml \
-  --set image.tag=$TAG \
-  -f /tmp/kubeconfig
-```
-
-### Development Workflow
-
-**Start local development server:**
-```bash
-cd app
-go run main.go
-# Visit http://localhost:8080
-```
-
-**Lint the Go code:**
-```bash
-golangci-lint run ./...
-# or simply
+# 2. Run vet to catch common issues
 go vet ./...
+
+# 3. Build locally to verify no compilation errors
+go build -o /tmp/main ./app
 ```
 
-**Test individual components:**
+### Running the App
 ```bash
-# Run go test with verbose output
-cd app
-go test -v -run TestYourFunctionName ./...
+# Run locally (need LXD + OpenBao creds in env)
+go run app/main.go
 
-# Run specific test file
-go test -v -run ^TestStatusHandler$ ./
+# Or run built binary
+/tmp/main
 ```
 
-### Environment Setup
-
-**MicroK8s namespaces and secrets setup:**
+### Testing
 ```bash
-microk8s kubectl create namespace dev
-microk8s kubectl create namespace staging
-microk8s kubectl create namespace live
+# Run all tests
+go test ./...
 
-# Create OpenBao credentials secret for each namespace
-for NS in dev staging live; do
-  microk8s kubectl create secret generic openbao-creds \
-    --from-literal=VAULT_ADDR=https://<openbao-ip>:8200 \
-    --from-literal=VAULT_ROLE_ID=<role-id> \
-    --from-literal=VAULT_SECRET_ID=<secret-id> \
-    --namespace=$NS \
-    --dry-run=client -o yaml | microk8s kubectl apply -f -
-done
+# Run a single test
+go test -v ./app/ -run TestSpecificTestName
 ```
 
-**Add ingress hosts:**
+### Building & Deploying
 ```bash
-echo "<microk8s-node-ip> dev.local staging.local live.local" | sudo tee -a /etc/hosts
-```
+# Build Docker image (push to private registry)
+docker build -t 10.206.213.243:32000/go-lxd-vm-dashboard:latest ./app
+docker push 10.206.213.243:32000/go-lxd-vm-dashboard:latest
 
-### GHA Workflow Secrets
+# Verify deployed service is responding
+curl http://<service-ip>:8080/ | grep -o "LXD VM"
 
-These must be set at the **Gitea org level** (Infra org):
-
-- `VAULT_ADDR` — OpenBao server address
-- `VAULT_ROLE_ID` — AppRole Role ID (same for all workflows)
-- `VAULT_SECRET_ID` — AppRole Secret ID
-
-Workflow files use `.github/workflows/` directory inside the app subdirectory.
-
-## Code Architecture Details
-
-### Go Application (`app/main.go`)
-
-**Entry point:** The application uses a simple HTTP server that handles each request to `/`.
-
-**Request flow on each HTTP request to `/`:**
-
-1. **`getSecrets()`** — Authenticates to OpenBao using AppRole credentials from environment variables:
-   - Reads `VAULT_ADDR`, `VAULT_ROLE_ID`, `VAULT_SECRET_ID`
-   - Performs AppRole login at `auth/approle/login`
-   - Reads LXD TLS credentials from secret path `homelab/data/lxd`
-
-2. **LXD Connection:** Uses the retrieved TLS cert/key to connect:
-   - `lxd.ConnectLXD()` with `InsecureSkipVerify: true`
-   - Configured to use project `default`
-
-3. **Query LXD API:** Calls `client.GetInstancesFull()` to get all instances.
-
-4. **Render Template:** Passes instance data to `index.html` and renders HTML.
-
-**Environment variables used:**
-
-| Variable | Source | Default | Purpose |
-|----------|--------|---------|---------|
-| `VAULT_ADDR` | K8s Secret | required | OpenBao server URL |
-| `VAULT_ROLE_ID` | K8s Secret | required | AppRole Role ID |
-| `VAULT_SECRET_ID` | K8s Secret | required | AppRole Secret ID |
-| `VAULT_SKIP_VERIFY` | deployment.yaml | false | Skip TLS verification for OpenBao |
-| `LXD_ADDR` | values.yaml | required | LXD API endpoint |
-| `PORT` | optional | 8080 | HTTP listen port |
-
-**Security considerations:**
-
-- Credentials are **never baked into the image** — retrieved at runtime from K8s secrets
-- Uses OpenBao AppRole authentication for short-lived credentials
-- LXD TLS credentials are fetched per-request, not cached
-- `VAULT_SKIP_VERIFY=true` option exists for development convenience
-
-### Helm Chart Structure (`helm-chart/`)
-
-**Files and their purposes:**
-
-- **values.yaml** — Base defaults: image spec, service port (80 → 8080), LXD address
-- **values-dev.yaml** — Dev environment overrides (ingress host: `dev.local`)
-- **values-staging.yaml** — Staging overrides (`staging.local`)
-- **values-live.yaml** — Live overrides (`live.local`)
-- **deployment.yaml** — Pod spec with env injected from secrets and values
-- **service.yaml** — ClusterIP service exposing port 80 → 8080
-- **ingress.yaml** — NGINX ingress with public class
-
-**Helm install pattern:**
-```bash
+# Deploy to environment via Helm
 helm upgrade --install go-lxd-vm-dashboard \
-  --namespace $NS \
-  --values helm-chart/values-$NS.yaml \
-  --set image.tag=$TAG
+  --namespace <dev|staging|live> \
+  --values helm-chart/values-<env>.yaml \
+  --set image.tag=<tag> \
+  -f helm-chart/Chart.yaml \
+  ./helm-chart
 ```
 
-### CI/CD Pipelines (`.gitea/workflows/`)
-
-**PR Pipeline (pr-pipeline.yml):**
-1. **build-pr** — Builds and pushes image tagged as `pr-<run_number>`
-2. **deploy-dev-pr** — Fetches kubeconfig, deploys to dev namespace
-3. **deploy-staging-pr** — Deploys to staging after dev approval
-
-**Push Pipeline (push-pipeline.yml):**
-1. **build** — Builds and pushes image tagged as `latest`
-2. **deploy-live** — Deploys to live namespace
-
-Both pipelines use OpenBao AppRole for authentication and fetch credentials at runtime, similar to the app itself.
-
-## Common Development Tasks
-
-### Debugging LXD Connection Issues
-
-1. Check OpenBao role permissions:
+### Linting
 ```bash
-# Verify you can login to OpenBao
-curl -X POST https://<vault-addr>/v1/auth/approle/login \
-  -d "role_id=<role_id>" \
-  -d "secret_id=<secret_id>"
+# If installed: golangci-lint run
+# Otherwise: go vet ./...
 ```
 
-2. Check if secret path exists:
-```bash
-# List secrets in homelab namespace
-curl https://<vault-addr>/v1/secret/list homelab/data --header "Authorization: Bearer <token>"
+## Environment Variables (K8s)
+
+Injected via `openbao-creds` secret in each namespace:
+- `VAULT_ADDR` - OpenBao server URL
+- `VAULT_ROLE_ID` - AppRole role ID (same for all workflows)
+- `VAULT_SECRET_ID` - AppRole secret ID  
+- `LXD_ADDR` - LXD API endpoint
+
+Additional at runtime:
+- `PORT` - HTTP listen port (default: 8080)
+
+## Security Architecture
+
+### Secrets Flow (Gitea → OpenBao → LXD)
+```
+┌───────────────────────┐
+│ Gitea Org Secrets     │ ← VAULT_ADDR, ROLE_ID, SECRET_ID
+└───────────┬───────────┘
+            │ AppRole login
+            ▼
+┌───────────────────────┐
+│ OpenBao AppRole auth  │ ← Validates credentials
+└───────────┬───────────┘
+            │ Returns LXD TLS creds
+            ▼
+┌───────────────────────┐     ┌──────────────────┐
+│ homelab/data/lxd      │     │ K8s Secret       │
+│ client_cert           │◄────│ openbao-creds    │
+│ client_key            │     │ VAULT_*.         │
+└───────────────────────┘     └──────────────────┘
+            │                     │
+            ▼                     ▼
+        LXD API              K8s deployment.yaml
+   (10.0.0.162:8443)      ← envFrom + values.yaml
+                           ↓
+                      Go App reads creds at runtime
 ```
 
-3. Verify LXD API is accessible from GHA runner:
-```bash
-curl -k https://<lxd-address>/1.0/instances?recursive=true \
-  --cert <client-cert> \
-  --key <client-key>
-```
+### Three Environments
+- **dev** - PR pipeline job 2 after build succeeds
+- **staging** - PR pipeline job 3 (sequential, requires dev deployment first)
+- **live** - Push pipeline job (requires merge to `main`)
 
-### Debugging Helm Deployments
+## Common Tasks
 
-**Check deployment status:**
-```bash
-microk8s kubectl get pods -n dev
-microk8s kubectl describe pod <pod-name> -n dev
+### Add/modify LXD instance queries
+1. Edit `app/main.go` → find `GetInstancesFull()` call
+2. Modify filters or add new queries to LXD state API
+3. Update HTML template `app/index.html` if rendering changes needed
 
-# Check events for failure reasons
-microk8s kubectl logs <pod-name> -n dev
-```
+### Environment promotion gates
+- PR pipeline: build → deploy-dev → deploy-staging (sequential)
+- Push pipeline: build → deploy-live (immediate on merge)
 
-### Updating OpenBao Secrets Path
+### Troubleshooting OpenBao auth failures
+- Verify Gitea org secrets have matching ROLE_ID/SECRET_ID pair
+- Check OpenBao policy allows `lxd-read` data path access
+- Confirm kubeconfig fetch succeeds (`kubectl --kubeconfig=<path>`)
 
-If you change the LXD secrets path in OpenBao:
+### Troubleshooting LXD connection
+- LXD address defaults to `10.0.0.162:8443` per README
+- Verify TLS cert/key from OpenBao are valid for that host
+- `InsecureSkipVerify: true` is used in client config
 
-1. Update secret location in app (`app/main.go` line 106):
-```go
-secret, err := client.Logical().Read("homelab/data/lxd")
-```
+## CI/CD Workflows
 
-2. Regenerate and redeploy:
-```bash
-helm upgrade --install ... --set image.tag=new-tag
-```
+### `.gitea/workflows/pr-pipeline.yml`
+Triggers on PR to `main`:
+1. `build-pr` - Build image, tag as `pr-{run_number}`, push to registry
+2. `deploy-dev-pr` - Helm deploy to dev namespace (depends on build success)
+3. `deploy-staging-pr` - Helm deploy to staging namespace (depends on dev success)
 
-### Template Rendering
+### `.gitea/workflows/push-pipeline.yml`
+Triggers on push to `main`:
+1. `build` - Build image tagged `latest`, push to registry
+2. `deploy-live` - Helm deploy to live namespace
 
-The app loads `index.html` as a Go template. To modify the dashboard UI, edit `app/index.html`. The template receives data via `InstanceData` struct containing instances or errors.
-
-## Important Notes
-
-1. **Version Compatibility:**
-   - Terraform ≥ 1.5 required (for related infrastructure)
-   - LXD installed via snap on Ubuntu 24.04 host
-
-2. **Secrets Management:**
-   - All secrets are configured at Gitea org level (Infra org)
-   - K8s secrets are created manually in each namespace via `openbao-creds`
-
-3. **Deployment Flow:**
-   - PR to main triggers: build → dev → staging promotion
-   - Merge to main triggers: build → live deployment
-
-4. **Workflow Requirements:**
-   - All workflows run from root directory of repository
-   - Workflows use Gitea Actions with predefined environment variables from secrets
-
-5. **State Management (Related Infrastructure):**
-   - See `terraform/` directory for LXD VM provisioning
-   - State stored in MinIO per environment per VM
-   - VM naming convention: `<environment>-<os_type>-<vm_name>`
+All workflows use Gitea Actions secrets for VAULT_* credentials and inject them into pods at runtime.

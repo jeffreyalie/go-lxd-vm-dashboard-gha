@@ -380,7 +380,7 @@ Every HTTP request to `/` triggers this sequence:
 
 **Docker build:**
 
-Multi-stage build — Go binary compiled in `golang:1.26.2-alpine`, copied into `alpine:latest` final image. Only the binary and `index.html` are included. No credentials baked in.
+Multi-stage build — Go binary compiled in `golang:1.23-alpine`, copied into `alpine:latest` final image. Only the binary and `index.html` are included. No credentials baked in.
 
 ```bash
 docker build -t 10.206.213.243:32000/go-lxd-vm-dashboard:latest ./app
