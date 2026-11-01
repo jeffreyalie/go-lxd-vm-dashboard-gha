@@ -279,8 +279,14 @@ git clone https://gitea.local/Infra/go-lxd-vm-dashboard-gha.git
 cd go-lxd-vm-dashboard-gha
 git checkout -b feature/my-change
 ```
-
-### 2. Make changes, push and raise a PR
+### 3. Make changes and go check
+In ```makefile``` using ```docker run``` instead of direct ```go``` commands
+```bash
+make init       # For first time only
+make tidy       # If modules are changed
+make check      #  Linting  
+```
+### 3. Make changes, push and raise a PR
 
 ```bash
 git add .
