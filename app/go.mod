@@ -1,6 +1,6 @@
 module go-lxd-vm-dashboard
 
-go 1.23
+go 1.26.2
 
 require (
 	github.com/canonical/lxd v0.0.0-20260501201753-6f159ffa6653
